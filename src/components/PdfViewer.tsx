@@ -25,52 +25,8 @@ export default function PdfViewer({ file, onPageRendered }: PdfViewerProps) {
         setIsLoadingDocument(true);
         let loadingTask;
         if (typeof file === 'string') {
-          // Fetch the file size first
-          const headResponse = await fetch(file, { method: 'HEAD' });
-          if (!headResponse.ok) {
-            throw new Error(`Failed to fetch PDF headers: ${headResponse.status} ${headResponse.statusText}`);
-          }
-          const contentLength = parseInt(headResponse.headers.get('Content-Length') || '0', 10);
-          
-          if (contentLength > 0) {
-            // Fetch the file in 5MB chunks to avoid proxy size limits
-            const chunkSize = 5 * 1024 * 1024; // 5MB
-            const chunks: Uint8Array[] = [];
-            let downloadedBytes = 0;
-            
-            for (let start = 0; start < contentLength; start += chunkSize) {
-              const end = Math.min(start + chunkSize - 1, contentLength - 1);
-              const res = await fetch(file, {
-                headers: { Range: `bytes=${start}-${end}` }
-              });
-              
-              if (!res.ok && res.status !== 206) {
-                throw new Error(`Failed to fetch PDF chunk: ${res.status} ${res.statusText}`);
-              }
-              
-              const buffer = await res.arrayBuffer();
-              chunks.push(new Uint8Array(buffer));
-              downloadedBytes += buffer.byteLength;
-            }
-            
-            const typedarray = new Uint8Array(contentLength);
-            let offset = 0;
-            for (const chunk of chunks) {
-              typedarray.set(chunk, offset);
-              offset += chunk.length;
-            }
-            
-            loadingTask = pdfjsLib.getDocument(typedarray);
-          } else {
-            // Fallback if Content-Length is not available
-            const response = await fetch(file);
-            if (!response.ok) {
-              throw new Error(`Failed to fetch PDF: ${response.status} ${response.statusText}`);
-            }
-            const arrayBuffer = await response.arrayBuffer();
-            const typedarray = new Uint8Array(arrayBuffer);
-            loadingTask = pdfjsLib.getDocument(typedarray);
-          }
+          // Let pdf.js handle fetching directly - it supports streaming and range requests natively
+          loadingTask = pdfjsLib.getDocument(file);
         } else {
           const fileReader = new FileReader();
           const arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {

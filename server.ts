@@ -7,15 +7,39 @@ import https from "https";
 function downloadFile(url: string, dest: string): Promise<void> {
   return new Promise((resolve, reject) => {
     https.get(url, (response) => {
-      if (response.statusCode === 302 || response.statusCode === 303) {
+      if (response.statusCode === 301 || response.statusCode === 302 || response.statusCode === 303) {
         downloadFile(response.headers.location!, dest).then(resolve).catch(reject);
+      } else if (response.statusCode !== 200) {
+        reject(new Error(`HTTP ${response.statusCode}`));
       } else {
-        const file = fs.createWriteStream(dest);
-        response.pipe(file);
-        file.on('finish', () => {
-          file.close();
-          resolve();
+        const chunks: Buffer[] = [];
+        response.on('data', (chunk) => chunks.push(chunk));
+        response.on('end', () => {
+          const data = Buffer.concat(chunks);
+          // Google Drive returns HTML for virus scan confirmation pages
+          const text = data.toString('utf-8', 0, Math.min(data.length, 500));
+          if (text.includes('confirm=') || text.includes('virus scan') || text.includes('too large')) {
+            // Extract confirmation URL from the HTML
+            const match = text.match(/href="(\/uc\?export=download[^"]+)"/);
+            if (match) {
+              const confirmUrl = 'https://drive.google.com' + match[1].replace(/&amp;/g, '&');
+              downloadFile(confirmUrl, dest).then(resolve).catch(reject);
+              return;
+            }
+          }
+          // Check that it's actually a PDF (starts with %PDF)
+          if (data.length > 100 && (data[0] === 0x25 && data[1] === 0x50 && data[2] === 0x44 && data[3] === 0x46)) {
+            fs.writeFileSync(dest, data);
+            resolve();
+          } else if (data.length > 1000) {
+            // Might be a valid file even without PDF header in some cases, save it
+            fs.writeFileSync(dest, data);
+            resolve();
+          } else {
+            reject(new Error('Downloaded file appears invalid (too small or not a PDF)'));
+          }
         });
+        response.on('error', reject);
       }
     }).on('error', reject);
   });
@@ -39,10 +63,12 @@ async function startServer() {
   }
 
   const pdfPath = path.resolve(publicDir, "manuscript.pdf");
-  if (!fs.existsSync(pdfPath)) {
+  const needsDownload = !fs.existsSync(pdfPath) || fs.statSync(pdfPath).size < 1000;
+  if (needsDownload) {
+    if (fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath);
     console.log("Downloading manuscript.pdf in the background...");
     downloadFile('https://drive.google.com/uc?export=download&id=1zEAkR7xd1iob5tuwTgazfFg6bcL7Pt_e', pdfPath)
-      .then(() => console.log("Download complete."))
+      .then(() => console.log("Download complete:", fs.statSync(pdfPath).size, "bytes"))
       .catch(err => console.error("Failed to download manuscript.pdf:", err));
   }
 
