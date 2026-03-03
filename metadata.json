@@ -1,0 +1,5 @@
+{
+  "name": "Manuscript Explorer",
+  "description": "An app that allows the reader to browse a PDF page by page, showing the original page, the extracted Latin text, and its translation.",
+  "requestFramePermissions": []
+}

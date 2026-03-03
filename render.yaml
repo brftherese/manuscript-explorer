@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: manuscript-explorer
+    runtime: docker
+    plan: free
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: NODE_ENV
+        value: production
