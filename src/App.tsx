@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import PdfViewer from './components/PdfViewer';
 import { processPage } from './services/geminiService';
-import { FileUp, BookOpen, Languages, Loader2, Download } from 'lucide-react';
+import { BookOpen, Languages, Loader2, Download } from 'lucide-react';
 
 export default function App() {
   const [file, setFile] = useState<File | string | null>('/manuscript.pdf');
@@ -73,24 +73,14 @@ export default function App() {
             <h1 className="text-xl font-semibold tracking-tight">Manuscript Explorer</h1>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div>
             <a
               href="https://drive.google.com/uc?export=download&id=1zEAkR7xd1iob5tuwTgazfFg6bcL7Pt_e"
               className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition-colors shadow-sm"
             >
               <Download className="w-4 h-4" />
-              <span className="text-sm font-medium">Download PDF</span>
+              <span className="text-sm font-medium">Download Original Manuscript PDF</span>
             </a>
-            <label className="flex items-center gap-2 px-4 py-2 bg-zinc-900 text-white rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer shadow-sm">
-              <FileUp className="w-4 h-4" />
-              <span className="text-sm font-medium">Upload PDF</span>
-              <input 
-                type="file" 
-                accept="application/pdf" 
-                onChange={handleFileUpload} 
-                className="hidden" 
-              />
-            </label>
           </div>
         </div>
       </header>
