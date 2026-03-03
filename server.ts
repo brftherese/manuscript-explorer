@@ -121,7 +121,7 @@ async function startServer() {
   });
 
   // Server-side Gemini API endpoint
-  const MODELS = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-flash-latest'];
+  const MODELS = ['gemini-3-flash-preview', 'gemini-flash-lite-latest', 'gemini-flash-latest'];
   
   app.post('/api/process', async (req, res) => {
     const apiKey = process.env.GEMINI_API_KEY;
