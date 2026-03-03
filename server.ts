@@ -161,7 +161,9 @@ async function startServer() {
           console.log(`Trying model: ${model}`);
           const response = await ai.models.generateContent({ model, contents, config });
           const jsonStr = response.text?.trim() || '{}';
-          return res.json(JSON.parse(jsonStr));
+          const result = JSON.parse(jsonStr);
+          result.model = model;
+          return res.json(result);
         } catch (e: any) {
           lastError = e;
           if (e?.status === 429 || e?.message?.includes('RESOURCE_EXHAUSTED')) {

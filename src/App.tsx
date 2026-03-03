@@ -5,7 +5,7 @@ import { BookOpen, Languages, Loader2, Download, RefreshCw } from 'lucide-react'
 
 export default function App() {
   const [file, setFile] = useState<File | string | null>('/manuscript.pdf');
-  const [pageData, setPageData] = useState<{ [pageNumber: number]: { originalText: string; englishTranslation: string } }>({});
+  const [pageData, setPageData] = useState<{ [pageNumber: number]: { originalText: string; englishTranslation: string; model?: string } }>({});
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [processingPages, setProcessingPages] = useState<Set<number>>(new Set());
 
@@ -142,6 +142,9 @@ export default function App() {
                   <div className="px-4 py-2 border-b border-zinc-100 bg-zinc-50 flex items-center justify-between shrink-0">
                     <h2 className="text-sm font-semibold text-zinc-700 flex items-center gap-2">
                       <Languages className="w-4 h-4 text-zinc-500" /> Extracted Text (Latin)
+                      {pageData[currentPage]?.model && (
+                        <span className="text-xs font-normal text-zinc-400 ml-1">via {pageData[currentPage].model}</span>
+                      )}
                     </h2>
                     {processingPages.has(currentPage) && (
                       <span className="flex items-center gap-2 text-xs font-medium text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full">
