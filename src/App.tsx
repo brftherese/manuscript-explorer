@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import PdfViewer from './components/PdfViewer';
 import { processPage } from './services/geminiService';
-import { FileUp, BookOpen, Languages, Loader2 } from 'lucide-react';
+import { FileUp, BookOpen, Languages, Loader2, Download } from 'lucide-react';
 
 export default function App() {
   const [file, setFile] = useState<File | string | null>('/manuscript.pdf');
@@ -73,7 +73,15 @@ export default function App() {
             <h1 className="text-xl font-semibold tracking-tight">Manuscript Explorer</h1>
           </div>
           
-          <div>
+          <div className="flex items-center gap-2">
+            <a
+              href="/manuscript.pdf"
+              download="manuscript.pdf"
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition-colors shadow-sm"
+            >
+              <Download className="w-4 h-4" />
+              <span className="text-sm font-medium">Download PDF</span>
+            </a>
             <label className="flex items-center gap-2 px-4 py-2 bg-zinc-900 text-white rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer shadow-sm">
               <FileUp className="w-4 h-4" />
               <span className="text-sm font-medium">Upload PDF</span>
