@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import PdfViewer from './components/PdfViewer';
 import { processPage } from './services/geminiService';
-import { BookOpen, Languages, Loader2, Download } from 'lucide-react';
+import { BookOpen, Languages, Loader2, Download, RefreshCw } from 'lucide-react';
 
 export default function App() {
   const [file, setFile] = useState<File | string | null>('/manuscript.pdf');
@@ -10,9 +10,11 @@ export default function App() {
   const [processingPages, setProcessingPages] = useState<Set<number>>(new Set());
 
   const processedPages = React.useRef<Set<number>>(new Set());
+  const pageImages = React.useRef<Record<number, string>>({});
 
   const handlePageRendered = useCallback(async (pageNumber: number, imageDataUrl: string) => {
     setCurrentPage(pageNumber);
+    pageImages.current[pageNumber] = imageDataUrl;
     if (!processedPages.current.has(pageNumber)) {
       processedPages.current.add(pageNumber);
       setProcessingPages(prev => new Set(prev).add(pageNumber));
@@ -49,6 +51,30 @@ export default function App() {
       }
     }
   }, []);
+
+  const handleRedoPage = useCallback(async () => {
+    const imageDataUrl = pageImages.current[currentPage];
+    if (!imageDataUrl || processingPages.has(currentPage)) return;
+    processedPages.current.delete(currentPage);
+    setPageData(prev => { const next = { ...prev }; delete next[currentPage]; return next; });
+    setProcessingPages(prev => new Set(prev).add(currentPage));
+    try {
+      const result = await processPage(imageDataUrl);
+      setPageData(prev => ({ ...prev, [currentPage]: result }));
+      if (!result.originalText.includes('API Rate Limit Exceeded') && !result.originalText.includes('Error extracting text') && !result.originalText.includes('An error occurred')) {
+        processedPages.current.add(currentPage);
+        await fetch(`/api/pages/${currentPage}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(result)
+        });
+      }
+    } catch (error) {
+      console.error('Error reprocessing page:', error);
+    } finally {
+      setProcessingPages(prev => { const next = new Set(prev); next.delete(currentPage); return next; });
+    }
+  }, [currentPage, processingPages]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -121,6 +147,15 @@ export default function App() {
                       <span className="flex items-center gap-2 text-xs font-medium text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full">
                         <Loader2 className="w-3 h-3 animate-spin" /> Processing Page...
                       </span>
+                    )}
+                    {!processingPages.has(currentPage) && pageData[currentPage] && (
+                      <button
+                        onClick={handleRedoPage}
+                        className="flex items-center gap-1.5 text-xs font-medium text-zinc-600 hover:text-indigo-600 bg-zinc-100 hover:bg-indigo-50 px-2.5 py-1 rounded-full transition-colors"
+                        title="Re-extract and re-translate this page"
+                      >
+                        <RefreshCw className="w-3 h-3" /> Redo Page
+                      </button>
                     )}
                   </div>
                   <div className="p-4 overflow-y-auto flex-1 font-serif text-zinc-800 leading-relaxed text-base">
