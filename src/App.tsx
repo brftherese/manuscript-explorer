@@ -75,8 +75,7 @@ export default function App() {
           
           <div className="flex items-center gap-2">
             <a
-              href="/manuscript.pdf"
-              download="manuscript.pdf"
+              href="https://drive.google.com/uc?export=download&id=1zEAkR7xd1iob5tuwTgazfFg6bcL7Pt_e"
               className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition-colors shadow-sm"
             >
               <Download className="w-4 h-4" />
