@@ -22,6 +22,7 @@ export default function App() {
         const res = await fetch(`/api/pages/${pageNumber}?t=${Date.now()}`);
         if (res.ok) {
           const data = await res.json();
+          data.model = data.model || 'cached';
           setPageData(prev => ({ ...prev, [pageNumber]: data }));
         } else {
           const result = await processPage(imageDataUrl);
