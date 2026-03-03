@@ -121,6 +121,8 @@ async function startServer() {
   });
 
   // Server-side Gemini API endpoint
+  const MODELS = ['gemini-2.0-flash-lite', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+  
   app.post('/api/process', async (req, res) => {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
@@ -135,29 +137,42 @@ async function startServer() {
       const mimeType = imageDataUrl.split(';')[0].split(':')[1];
 
       const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
-        contents: {
-          parts: [
-            { inlineData: { data: base64Data, mimeType } },
-            { text: 'Extract the original text (likely Latin) from this page, and provide an English translation of it. Return the result as JSON with "originalText" and "englishTranslation" fields. If the page is blank or contains no text, return empty strings.' },
-          ],
-        },
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              originalText: { type: Type.STRING, description: 'The extracted original text from the page.' },
-              englishTranslation: { type: Type.STRING, description: 'The English translation of the extracted text.' },
-            },
-            required: ['originalText', 'englishTranslation'],
+      const config = {
+        responseMimeType: 'application/json' as const,
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            originalText: { type: Type.STRING, description: 'The extracted original text from the page.' },
+            englishTranslation: { type: Type.STRING, description: 'The English translation of the extracted text.' },
           },
+          required: ['originalText', 'englishTranslation'],
         },
-      });
+      };
+      const contents = {
+        parts: [
+          { inlineData: { data: base64Data, mimeType } },
+          { text: 'Extract the original text (likely Latin) from this page, and provide an English translation of it. Return the result as JSON with "originalText" and "englishTranslation" fields. If the page is blank or contains no text, return empty strings.' },
+        ],
+      };
 
-      const jsonStr = response.text?.trim() || '{}';
-      res.json(JSON.parse(jsonStr));
+      let lastError: any;
+      for (const model of MODELS) {
+        try {
+          console.log(`Trying model: ${model}`);
+          const response = await ai.models.generateContent({ model, contents, config });
+          const jsonStr = response.text?.trim() || '{}';
+          return res.json(JSON.parse(jsonStr));
+        } catch (e: any) {
+          lastError = e;
+          if (e?.status === 429 || e?.message?.includes('RESOURCE_EXHAUSTED')) {
+            console.log(`${model} rate limited, trying next...`);
+            continue;
+          }
+          throw e; // non-rate-limit error, don't retry
+        }
+      }
+      // All models exhausted
+      throw lastError;
     } catch (error: any) {
       console.error('Gemini API Error:', error);
       if (error?.status === 429 || error?.message?.includes('429') || error?.message?.includes('RESOURCE_EXHAUSTED')) {
