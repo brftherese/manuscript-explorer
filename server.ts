@@ -3,6 +3,10 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import fs from "fs";
 import https from "https";
+import dotenv from "dotenv";
+import { GoogleGenAI, Type } from "@google/genai";
+
+dotenv.config({ path: '.env.local' });
 
 function downloadFile(url: string, dest: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -82,8 +86,9 @@ async function startServer() {
     } catch (e) {
       console.error("Failed to parse data.json", e);
     }
-  } else if (!isProd) {
-    // Try to load from project root if in dev, or if /tmp is empty
+  }
+  // In production, also try to load from bundled data.json if /tmp is empty
+  if (Object.keys(pageData).length === 0) {
     const rootDataFile = path.resolve(process.cwd(), "data.json");
     if (fs.existsSync(rootDataFile)) {
       try {
@@ -113,6 +118,59 @@ async function startServer() {
       console.error("Failed to save data.json", e);
     }
     res.json({ success: true });
+  });
+
+  // Server-side Gemini API endpoint
+  app.post('/api/process', async (req, res) => {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: 'GEMINI_API_KEY not configured' });
+    }
+    try {
+      const { imageDataUrl } = req.body;
+      if (!imageDataUrl) {
+        return res.status(400).json({ error: 'imageDataUrl is required' });
+      }
+      const base64Data = imageDataUrl.split(',')[1];
+      const mimeType = imageDataUrl.split(';')[0].split(':')[1];
+
+      const ai = new GoogleGenAI({ apiKey });
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: {
+          parts: [
+            { inlineData: { data: base64Data, mimeType } },
+            { text: 'Extract the original text (likely Latin) from this page, and provide an English translation of it. Return the result as JSON with "originalText" and "englishTranslation" fields. If the page is blank or contains no text, return empty strings.' },
+          ],
+        },
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              originalText: { type: Type.STRING, description: 'The extracted original text from the page.' },
+              englishTranslation: { type: Type.STRING, description: 'The English translation of the extracted text.' },
+            },
+            required: ['originalText', 'englishTranslation'],
+          },
+        },
+      });
+
+      const jsonStr = response.text?.trim() || '{}';
+      res.json(JSON.parse(jsonStr));
+    } catch (error: any) {
+      console.error('Gemini API Error:', error);
+      if (error?.status === 429 || error?.message?.includes('429') || error?.message?.includes('RESOURCE_EXHAUSTED')) {
+        return res.status(429).json({
+          originalText: 'API Rate Limit Exceeded. Please wait a moment and try again.',
+          englishTranslation: 'API Rate Limit Exceeded. Please wait a moment and try again.',
+        });
+      }
+      res.status(500).json({
+        originalText: `Error processing page: ${error.message || 'Unknown error'}`,
+        englishTranslation: `Error processing page: ${error.message || 'Unknown error'}`,
+      });
+    }
   });
 
   // Serve the large PDF file with proper streaming and range support
